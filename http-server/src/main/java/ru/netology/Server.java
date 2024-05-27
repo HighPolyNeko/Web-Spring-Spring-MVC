@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -49,23 +50,30 @@ class Server {
                 BufferedOutputStream out = new BufferedOutputStream(socket.getOutputStream())
         ) {
             String requestLine = in.readLine();
-            if (requestLine == null || !requestLine.startsWith("GET")) {
-                // Если запрос пустой или не начинается с "GET", возвращаем 404
+            if (requestLine == null) {
                 sendResponse(out, RESPONSE_404.getBytes());
                 return;
             }
 
-            String[] parts = requestLine.split(" ");
-            if (parts.length != 3) {
-                // Если количество частей не равно 3 (метод, путь, версия HTTP), возвращаем 404
+            Request request;
+            try {
+                request = new Request(requestLine);
+            } catch (IllegalArgumentException | URISyntaxException e) {
+                // Если IllegalArgumentException или URISyntaxException, возвращаем 404
+                sendResponse(out, RESPONSE_404.getBytes());
+                return;
+            }
+
+            if (!request.getMethod().equalsIgnoreCase("GET")) {
+                // Если метод запроса не GET, возвращаем 404
                 sendResponse(out, RESPONSE_404.getBytes());
                 return;
             }
 
             // Получаем путь
-            String path = parts[1];
+            String path = request.getPath();
             // Проверка на валидность пути
-            if (!validPaths.contains(path)) {
+            if (!validPaths.contains(path) && !path.equals("/messages")) {
                 sendResponse(out, RESPONSE_404.getBytes());
                 return;
             }
